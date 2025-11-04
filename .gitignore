@@ -1,0 +1,30 @@
+# Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env/
+.venv/
+
+# Config local
+*.env
+*.ini
+*.local
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Cache
+.cache/
+dist/
+build/
+*.egg-info/
+
+# pycharm
+.idea/
