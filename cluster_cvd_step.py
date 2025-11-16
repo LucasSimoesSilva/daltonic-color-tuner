@@ -84,7 +84,7 @@ def collision_graph(delta_cvd_matrix: np.ndarray, threshold: float = 8.0):
 
 
 def analyze_collisions(image_path: str, cluster_number: int = 6, cvd_type: str = "deutan", severity: float = 1.0,
-                       threshold: float = 8.0):
+                       threshold: float = 8.0, output_path: str | None = "../images/saida_recolorida.png"):
     """
     Returns: (lab_centroids, lab_centroids_cvd, deltaE_matrix_cvd, collisions)
     """
@@ -109,16 +109,11 @@ def analyze_collisions(image_path: str, cluster_number: int = 6, cvd_type: str =
 
     # 6) Print
     print(f"Clusters: {cluster_number}, CVD: {cvd_type}, severity: {severity}, threshold: {threshold}")
-    print("ΔE2000 matrix under CVD (approx.):")
+    print("ΔE2000 matrix under CVD:")
     np.set_printoptions(precision=2, suppress=True)
     print(delta_cvd)
 
-    if collisions:
-        print("\nCollisions detected (i, j, ΔE):")
-        for i, j, d in collisions:
-            print(f"  {i} -- {j}  ΔE={d:.2f}")
-    else:
-        print("\nNo collisions below the threshold.")
+    print_collisions(collisions)
 
     centroids_optimized = optimize_palette_from_collisions(
         lab_centroids,
@@ -138,12 +133,7 @@ def analyze_collisions(image_path: str, cluster_number: int = 6, cvd_type: str =
     print("\nΔE2000 matrix under CVD:")
     print(delta_cvd_optimized)
 
-    if collisions_optimized:
-        print("\nCollisions detected (i, j, ΔE):")
-        for i, j, d in collisions_optimized:
-            print(f"  {i} -- {j}  ΔE={d:.2f}")
-    else:
-        print("\nNo collisions below the threshold.")
+    print_collisions(collisions_optimized)
 
     # 7) Apply optimized palette to original image.
     print("\nGenerating recolored image")
@@ -158,7 +148,7 @@ def analyze_collisions(image_path: str, cluster_number: int = 6, cvd_type: str =
         blend_ratio=0.1)
 
     img_rgb_recolored = lab_to_rgb(img_lab_recolored)
-    write_rgb("../images/saida_recolorida.png", img_rgb_recolored)
+    write_rgb(output_path, img_rgb_recolored)
 
     print("Image created")
 
@@ -350,3 +340,11 @@ def assign_clusters_to_image(img_lab: np.ndarray, centroids_lab: np.ndarray) -> 
     # For each pixel, it retrieves the index of the nearest centroid.
     cluster_labels = np.argmin(dist_squared, axis=1).reshape(height, width)
     return cluster_labels
+
+def print_collisions(collisions: list[tuple[int, int, float]]) -> None:
+    if collisions:
+        print("\nCollisions detected (i, j, ΔE):")
+        for i, j, d in collisions:
+            print(f"  {i} -- {j}  ΔE={d:.2f}")
+    else:
+        print("\nNo collisions below the threshold.")
