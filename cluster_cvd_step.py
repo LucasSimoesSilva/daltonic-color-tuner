@@ -84,7 +84,8 @@ def collision_graph(delta_cvd_matrix: np.ndarray, threshold: float = 8.0):
 
 
 def analyze_collisions(image_path: str, cluster_number: int = 6, cvd_type: str = "deutan", severity: float = 1.0,
-                       threshold: float = 8.0, output_path: str | None = "../images/saida_recolorida.png"):
+                       threshold: float = 8.0, output_path: str | None = "../images/saida_recolorida.png",
+                       apply_luminosity: bool = True):
     """
     Returns: (lab_centroids, lab_centroids_cvd, deltaE_matrix_cvd, collisions)
     """
@@ -120,9 +121,9 @@ def analyze_collisions(image_path: str, cluster_number: int = 6, cvd_type: str =
         collisions,
         cvd_type=cvd_type,
         severity=severity,
-        step=5.0,
-        search_radius=2,
-        lambda_fidelity=0.7,
+        step=10.0,
+        search_radius=3,
+        lambda_fidelity=0.3,
     )
 
     palette_cvd_lab_optimized = simulate_palette_cvd(centroids_optimized, cvd_type=cvd_type, severity=severity)
@@ -140,12 +141,20 @@ def analyze_collisions(image_path: str, cluster_number: int = 6, cvd_type: str =
 
     label_map_full = assign_clusters_to_image(img_lab, centroids_optimized)
 
+    luminosity_offsets = None
+
+    if apply_luminosity:
+        luminosity_offsets = {
+            1: +12.0,  # dark
+            5: -8.0,  # light
+        }
+
     img_lab_recolored = recolor_image_from_clusters(
         img_lab=img_lab,
         label_map=label_map_full,
         lab_centroids_original=lab_centroids,
         lab_centroids_optimized=centroids_optimized,
-        blend_ratio=0.1)
+        blend_ratio=0.1, luminosity_offsets=luminosity_offsets, )
 
     img_rgb_recolored = lab_to_rgb(img_lab_recolored)
     write_rgb(output_path, img_rgb_recolored)
@@ -282,7 +291,7 @@ def recolor_image_from_clusters(
         label_map: np.ndarray,
         lab_centroids_original: np.ndarray,
         lab_centroids_optimized: np.ndarray,
-        blend_ratio: float = 0.1) -> np.ndarray:
+        blend_ratio: float = 0.1, luminosity_offsets: dict[int, float] | None = None) -> np.ndarray:
     """
     Recolors the image by replacing each cluster with its optimized centroid.
     blend_ratio: fraction of the original color blended to avoid harsh edges. (0 = optimized only; 1 = original only).
@@ -294,6 +303,9 @@ def recolor_image_from_clusters(
 
     # Get number of clusters based on number of centroids
     num_clusters = lab_centroids_original.shape[0]
+
+    if luminosity_offsets is None:
+        luminosity_offsets = {}
 
     for cluster_index in range(num_clusters):
         # Get the pixels that are in this cluster
@@ -307,6 +319,11 @@ def recolor_image_from_clusters(
             blended_centroid = (
                     (1.0 - blend_ratio) * lab_centroids_optimized[cluster_index] +
                     blend_ratio * lab_centroids_original[cluster_index])
+
+            if cluster_index in luminosity_offsets:
+                new_luminosity = blended_centroid[0] + luminosity_offsets[cluster_index]
+                # L* [0, 100]
+                blended_centroid[0] = np.clip(new_luminosity, 0.0, 100.0)
 
             # Assigns this mixed color to all pixels belonging to this cluster.
             img_lab_recolored[cluster_mask] = blended_centroid
@@ -340,6 +357,7 @@ def assign_clusters_to_image(img_lab: np.ndarray, centroids_lab: np.ndarray) -> 
     # For each pixel, it retrieves the index of the nearest centroid.
     cluster_labels = np.argmin(dist_squared, axis=1).reshape(height, width)
     return cluster_labels
+
 
 def print_collisions(collisions: list[tuple[int, int, float]]) -> None:
     if collisions:
